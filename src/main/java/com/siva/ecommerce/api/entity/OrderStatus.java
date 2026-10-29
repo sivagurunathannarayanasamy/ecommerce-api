@@ -7,5 +7,15 @@ public enum OrderStatus {
 	SHIPPED,
 	DELIVERED,
 	CANCELLED,
-	REFUNDED
+	REFUNDED;
+
+	public boolean canTransitionTo(OrderStatus target) {
+		return switch (this) {
+			case PENDING -> target == CONFIRMED || target == CANCELLED;
+			case CONFIRMED -> target == PROCESSING || target == CANCELLED;
+			case PROCESSING -> target == SHIPPED || target == CANCELLED;
+			case SHIPPED -> target == DELIVERED;
+			case DELIVERED, CANCELLED, REFUNDED -> false;
+		};
+	}
 }

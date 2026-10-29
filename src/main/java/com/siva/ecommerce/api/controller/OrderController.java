@@ -1,0 +1,68 @@
+package com.siva.ecommerce.api.controller;
+
+import java.net.URI;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import com.siva.ecommerce.api.dto.OrderRequest;
+import com.siva.ecommerce.api.dto.OrderResponse;
+import com.siva.ecommerce.api.dto.OrderStatusUpdateRequest;
+import com.siva.ecommerce.api.dto.PaymentStatusUpdateRequest;
+import com.siva.ecommerce.api.entity.OrderStatus;
+import com.siva.ecommerce.api.service.OrderService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/v1/orders")
+@RequiredArgsConstructor
+public class OrderController {
+
+	private final OrderService orderService;
+
+	@PostMapping
+	public ResponseEntity<OrderResponse> placeOrder(@Valid @RequestBody OrderRequest request) {
+		OrderResponse response = orderService.placeOrder(request);
+		URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+				.path("/{id}").buildAndExpand(response.getId()).toUri();
+		return ResponseEntity.created(location).body(response);
+	}
+
+	@GetMapping
+	public Page<OrderResponse> getAll(@RequestParam(required = false) Long customerId,
+			@RequestParam(required = false) OrderStatus status,
+			@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+		return orderService.getAll(customerId, status, pageable);
+	}
+
+	@GetMapping("/{id}")
+	public OrderResponse getById(@PathVariable Long id) {
+		return orderService.getById(id);
+	}
+
+	@PutMapping("/{id}/status")
+	public OrderResponse updateStatus(@PathVariable Long id, @Valid @RequestBody OrderStatusUpdateRequest request) {
+		return orderService.updateStatus(id, request.getStatus());
+	}
+
+	@PutMapping("/{id}/payment/status")
+	public OrderResponse updatePaymentStatus(@PathVariable Long id,
+			@Valid @RequestBody PaymentStatusUpdateRequest request) {
+		return orderService.updatePaymentStatus(id, request.getStatus());
+	}
+
+}
