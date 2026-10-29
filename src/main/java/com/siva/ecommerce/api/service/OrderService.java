@@ -48,6 +48,7 @@ public class OrderService {
 	public OrderResponse placeOrder(OrderRequest request) {
 		Customer customer = customerRepository.findById(request.getCustomerId())
 				.orElseThrow(() -> new ResourceNotFoundException("Customer", request.getCustomerId()));
+		String shippingAddress = resolveShippingAddress(request, customer);
 
 		// Merge duplicate product lines; sorted by id so concurrent orders lock product rows in the same order
 		SortedMap<Long, Integer> quantities = request.getItems().stream()
@@ -58,7 +59,7 @@ public class OrderService {
 
 		Order order = Order.builder()
 				.customer(customer)
-				.shippingAddress(resolveShippingAddress(request, customer))
+				.shippingAddress(shippingAddress)
 				.notes(request.getNotes())
 				.build();
 
