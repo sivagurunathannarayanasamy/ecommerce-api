@@ -1,6 +1,7 @@
 package com.siva.ecommerce.api.service;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -30,11 +31,15 @@ import com.siva.ecommerce.api.repository.OrderRepository;
 import com.siva.ecommerce.api.repository.ProductRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderService {
+
+	private static final int LOW_STOCK_THRESHOLD = 10;
 
 	private final OrderRepository orderRepository;
 	private final CustomerRepository customerRepository;
@@ -92,7 +97,9 @@ public class OrderService {
 				.paymentMethod(request.getPaymentMethod())
 				.amount(total)
 				.build());
-		return OrderResponse.from(orderRepository.save(order));
+		Order saved = orderRepository.save(order);
+		warnOnLowStock(quantities.keySet());
+		return OrderResponse.from(saved);
 	}
 
 	public OrderResponse getById(Long id) {
@@ -150,6 +157,13 @@ public class OrderService {
 				.collect(Collectors.toMap(item -> item.getProduct().getId(), OrderItem::getQuantity,
 						Integer::sum, TreeMap::new));
 		quantities.forEach(productRepository::incrementStock);
+	}
+
+	/** Warning only: low stock never blocks an order. */
+	private void warnOnLowStock(Collection<Long> productIds) {
+		productRepository.findStockLevelsBelow(productIds, LOW_STOCK_THRESHOLD)
+				.forEach(level -> log.warn("Low stock alert: {} has {} units left",
+						level.getName(), level.getStockQuantity()));
 	}
 
 	private void refundIfPaid(Payment payment) {

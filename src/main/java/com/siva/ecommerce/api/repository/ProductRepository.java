@@ -1,5 +1,7 @@
 package com.siva.ecommerce.api.repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -37,5 +39,21 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	@Modifying(flushAutomatically = true)
 	@Query("update Product p set p.stockQuantity = p.stockQuantity + :quantity where p.id = :id")
 	int incrementStock(@Param("id") Long id, @Param("quantity") int quantity);
+
+	/**
+	 * Reads current stock as a projection, not entities: managed Product instances in the
+	 * persistence context are stale after the bulk decrementStock updates.
+	 */
+	@Query("select p.name as name, p.stockQuantity as stockQuantity from Product p "
+			+ "where p.id in :ids and p.stockQuantity < :threshold order by p.id")
+	List<StockLevel> findStockLevelsBelow(@Param("ids") Collection<Long> ids, @Param("threshold") int threshold);
+
+	interface StockLevel {
+
+		String getName();
+
+		Integer getStockQuantity();
+
+	}
 
 }

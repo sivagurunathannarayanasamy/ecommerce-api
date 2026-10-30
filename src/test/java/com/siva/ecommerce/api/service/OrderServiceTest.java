@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
@@ -21,6 +23,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import com.siva.ecommerce.api.dto.OrderItemRequest;
 import com.siva.ecommerce.api.dto.OrderItemResponse;
@@ -88,6 +92,44 @@ class OrderServiceTest {
 				.containsExactly(PaymentStatus.PENDING, new BigDecimal("107.47"));
 		verify(productRepository).decrementStock(1L, 3);
 		verify(productRepository).decrementStock(5L, 1);
+	}
+
+	@Test
+	@ExtendWith(OutputCaptureExtension.class)
+	void should_logLowStockWarning_when_remainingStockBelowThreshold(CapturedOutput output) {
+		// Arrange
+		OrderRequest request = orderRequest(null, line(1L, 3));
+		when(customerRepository.findById(1L)).thenReturn(Optional.of(customer("123 Maple Street")));
+		when(productRepository.findAllById(any())).thenReturn(List.of(product(1L, "ELEC-MOU-001", "24.99", true)));
+		when(productRepository.decrementStock(1L, 3)).thenReturn(1);
+		when(orderRepository.save(any(Order.class))).thenAnswer(returnsFirstArg());
+		when(productRepository.findStockLevelsBelow(anyCollection(), eq(10)))
+				.thenReturn(List.of(stockLevel("Wireless Mouse", 7)));
+
+		// Act
+		OrderResponse response = orderService.placeOrder(request);
+
+		// Assert
+		assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
+		assertThat(output).contains("Low stock alert: Wireless Mouse has 7 units left");
+	}
+
+	@Test
+	@ExtendWith(OutputCaptureExtension.class)
+	void should_notLogLowStockWarning_when_remainingStockAtOrAboveThreshold(CapturedOutput output) {
+		// Arrange
+		OrderRequest request = orderRequest(null, line(1L, 3));
+		when(customerRepository.findById(1L)).thenReturn(Optional.of(customer("123 Maple Street")));
+		when(productRepository.findAllById(any())).thenReturn(List.of(product(1L, "ELEC-MOU-001", "24.99", true)));
+		when(productRepository.decrementStock(1L, 3)).thenReturn(1);
+		when(orderRepository.save(any(Order.class))).thenAnswer(returnsFirstArg());
+		when(productRepository.findStockLevelsBelow(anyCollection(), eq(10))).thenReturn(List.of());
+
+		// Act
+		orderService.placeOrder(request);
+
+		// Assert
+		assertThat(output).doesNotContain("Low stock alert");
 	}
 
 	@Test
@@ -359,6 +401,22 @@ class OrderServiceTest {
 				.amount(new BigDecimal("107.47"))
 				.build());
 		return order;
+	}
+
+	private static ProductRepository.StockLevel stockLevel(String name, int stockQuantity) {
+		return new ProductRepository.StockLevel() {
+
+			@Override
+			public String getName() {
+				return name;
+			}
+
+			@Override
+			public Integer getStockQuantity() {
+				return stockQuantity;
+			}
+
+		};
 	}
 
 	private static OrderItem orderItem(Product product, int quantity) {
