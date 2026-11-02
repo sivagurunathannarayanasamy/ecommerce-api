@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
@@ -80,6 +82,19 @@ class ProductReviewControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors[0].field").value("rating"))
 				.andExpect(jsonPath("$.errors[0].message").value("must be greater than or equal to 1"));
+		verifyNoInteractions(productReviewService);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "5.5", "5.9", "4.5", "0.5" })
+	void should_return400_when_ratingIsNotAWholeNumber(String rating) throws Exception {
+		// Act & Assert
+		mockMvc.perform(post("/api/v1/products/1/reviews")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"customerId": 2, "rating": %s}
+						""".formatted(rating)))
+				.andExpect(status().isBadRequest());
 		verifyNoInteractions(productReviewService);
 	}
 
