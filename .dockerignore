@@ -1,0 +1,10 @@
+target/
+.git/
+.claude/
+.vscode/
+.idea/
+.playwright-mcp/
+*.log
+*.iml
+Dockerfile
+.dockerignore
