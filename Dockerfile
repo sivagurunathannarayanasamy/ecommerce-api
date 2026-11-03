@@ -6,7 +6,9 @@ WORKDIR /workspace
 
 # Resolve dependencies in their own layer so source changes don't re-download them
 COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
+# mvnw is committed without the executable bit, which Linux builders keep
+COPY --chmod=0755 mvnw ./
+COPY pom.xml ./
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q dependency:go-offline
 
 COPY src/ src/
