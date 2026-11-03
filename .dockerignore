@@ -6,5 +6,8 @@ target/
 .playwright-mcp/
 *.log
 *.iml
+.env
+.env.*
+docker-compose.yml
 Dockerfile
 .dockerignore
